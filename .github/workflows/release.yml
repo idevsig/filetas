@@ -1,0 +1,130 @@
+name: Release
+
+on:
+  release:
+    types: [prereleased]
+  push:
+    branches:
+      - main
+      - v*
+      - dev*
+    paths:
+      - "app.py"
+      - "Containerfile"
+      - "requirements.txt"
+      - "templates/index.html"
+      - ".github/workflows/release.yml"
+
+jobs:
+  build-ghcr:
+    name: Build And Push to ghcr.io
+    runs-on: ubuntu-latest
+    env:
+      REGISTRY_USER: ${{ github.actor }}
+      REGISTRY_PASSWORD: ${{ github.token }}
+      IMAGE_REGISTRY: ghcr.io
+      REPOSITORY: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Log in to ghcr.io
+        uses: redhat-actions/podman-login@v1
+        with:
+          username: ${{ env.REGISTRY_USER }}
+          password: ${{ env.REGISTRY_PASSWORD }}
+          registry: ${{ env.IMAGE_REGISTRY }}
+
+      - name: Get Information
+        id: information
+        env:
+          PIP_MIRROR_URL: ${{ secrets.PIP_MIRROR_URL }}
+        run: |
+          if [[ -z "${PIP_MIRROR_URL}" ]]; then
+            PIP_MIRROR_URL="https://pypi.org/simple"
+          fi
+          echo "PIP_MIRROR_URL: ${PIP_MIRROR_URL}"
+          echo "PIP_MIRROR_URL=$PIP_MIRROR_URL" >> $GITHUB_OUTPUT
+
+          BUILD_TAG="latest"
+          echo "tag: ${BUILD_TAG}"
+          if [[ "${{ github.ref_name }}" != "main" ]]; then
+            BUILD_TAG="${{ github.ref_name }}-${{ matrix.arch }}"
+          fi
+          echo "BUILD_TAG: ${BUILD_TAG}"
+          echo "BUILD_TAG=$BUILD_TAG" >> $GITHUB_OUTPUT
+
+          sudo apt install qemu-user-static -y
+
+      - name: Buildah Action
+        id: build-image
+        uses: redhat-actions/buildah-build@v2
+        env:
+          PIP_MIRROR_URL: ${{ steps.information.outputs.PIP_MIRROR_URL }}
+        with:
+          image: ${{ env.REPOSITORY }}
+          tags: "${{ steps.information.outputs.BUILD_TAG }}"
+          containerfiles: |
+            ./Containerfile
+          build-args: |
+            PIP_MIRROR_URL=${{ env.PIP_MIRROR_URL }}
+          platforms: linux/amd64,linux/arm64
+          context: .
+          extra-args: |
+            --squash
+            --timestamp 0
+
+      - name: Push To ghcr.io
+        uses: redhat-actions/push-to-registry@v2
+        with:
+          image: ${{ steps.build-image.outputs.image }}
+          tags: ${{ steps.build-image.outputs.tags }}
+          registry: ${{ env.IMAGE_REGISTRY }}
+
+  build-docker:
+    name: Build And Push Docker Hub
+    runs-on: ubuntu-latest
+    env:
+      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+      IMAGE: filetas
+
+    steps:
+      - uses: actions/checkout@v3
+      - name: Login to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ env.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v2
+      - name: Get Information
+        id: information
+        env:
+          PIP_MIRROR_URL: ${{ secrets.PIP_MIRROR_URL }}
+        run: |
+          if [[ -z "${PIP_MIRROR_URL}" ]]; then
+            PIP_MIRROR_URL="https://pypi.org/simple"
+          fi
+          echo "PIP_MIRROR_URL: ${PIP_MIRROR_URL}"
+          echo "PIP_MIRROR_URL=$PIP_MIRROR_URL" >> $GITHUB_OUTPUT
+
+          BUILD_TAG="${{ github.ref_name }}-${{ matrix.arch }}"
+          echo "tag: ${BUILD_TAG}"
+          if [[ "${{ github.ref_name }}" = "main" ]]; then
+            BUILD_TAG="latest"
+          fi
+          echo "BUILD_TAG: ${BUILD_TAG}"
+          echo "BUILD_TAG=$BUILD_TAG" >> $GITHUB_OUTPUT
+
+          docker buildx create --use
+      - name: Build and push
+        id: dockerbuild
+        uses: docker/build-push-action@v4
+        with:
+          build-args: |
+            PIP_MIRROR_URL=${{ steps.information.outputs.PIP_MIRROR_URL }}
+          context: .
+          file: ./Containerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ env.DOCKERHUB_USERNAME }}/${{ env.IMAGE }}:${{ steps.information.outputs.BUILD_TAG }}
