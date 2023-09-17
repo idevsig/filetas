@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-import requests,os
+import requests
+import os
 import urllib.parse
 from flask import Flask, Response, abort, request, stream_with_context, send_from_directory, render_template
 from flask_basicauth import BasicAuth
@@ -28,11 +29,13 @@ CHUNK_SIZE = int(os.getenv('CHUNK_SIZE', 10240))
 TITLE = os.getenv('TITLE', '文件加速下载')
 FILE_EXT = os.getenv('FILE_EXT', '')
 
-FILE_EXT_LIST=FILE_EXT.split(',')
+FILE_EXT_LIST = FILE_EXT.split(',')
+
 
 @app.route('/')
 def index():
     return render_template('index.html', title=TITLE)
+
 
 @app.route('/favicon.ico')
 def favicon():
@@ -41,18 +44,20 @@ def favicon():
     else:
         abort(404)
 
+
 @app.route('/robots.txt')
 def robots_txt():
     content = 'User-agent:*\nDisallow:/'
     return Response(content, content_type='text/plain')
+
 
 @app.route('/<path:uri>')
 @stream_with_context
 def proxy(uri):
     # 若 URL 不含 'https://', 'http://'，则添加 https://
     if not uri.startswith(('https://', 'http://')):
-      if len(FILE_EXT_LIST) > 0 and is_download_url(uri): 
-        uri = 'https://' + uri
+        if len(FILE_EXT_LIST) > 0 and is_download_url(uri):
+            uri = 'https://' + uri
 
     # 判断不为下载链接
     if not uri.startswith(('https://', 'http://')):
@@ -79,6 +84,7 @@ def proxy(uri):
     headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
     return Response(generate(), headers=headers, status=resp.status_code)
 
+
 def is_download_url(url):
     url_path = urllib.parse.urlparse(url).path
     filename, extension = os.path.splitext(url_path)
@@ -86,5 +92,6 @@ def is_download_url(url):
         return False
     return extension.lower() in FILE_EXT_LIST
 
-if __name__ == '__main__':    
+
+if __name__ == '__main__':
     app.run(host=HOST, port=PORT, debug=DEBUG)

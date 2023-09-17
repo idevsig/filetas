@@ -98,8 +98,12 @@
 			e.preventDefault()
 			const fileUrlInput = downloadForm.querySelector('input[name="fileUrl"]')
 			const fileUrl = fileUrlInput.value
+
+			// 编码 fileUrl
+			const encodedFileUrl = encodeURIComponent(fileUrl)
+
 			const reqUrl = location.href.slice(0, location.href.lastIndexOf('/') + 1)
-			window.open(reqUrl + fileUrl)
+			window.open(reqUrl + encodedFileUrl)
 			return false
 		}
 	</script>
