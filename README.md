@@ -61,7 +61,7 @@ gunicorn app:app -D
 docker run -p 8000:8000 -d jetsung/filetas:latest
 
 # ghcr.io
-docker run -p 8000:8000 -d ghcr.io/devdoz/filetas:latest
+docker run -p 8000:8000 -d ghcr.io/idev-sig/filetas:latest
 ```
 
 ### 构建
