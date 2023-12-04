@@ -1,22 +1,17 @@
 # filetas
 
-文件传输加速服务 (File transfer acceleration service)
+基于 Python + Flask 的文件传输加速服务 (File transfer acceleration service)
 
-基于 Python + Flask
-
-- https://jihulab.com/devdo/filetas
-- https://github.com/devdoz/filetas
+- https://git.jetsung.com/idev/filetas
+- https://framagit.org/idev/filetas
+- https://github.com/idev-sig/filetas
 
 ## Python
 
 1. 下载源码
 
 ```bash
-# 国内
-git clone https://jihulab.com/devdo/filetas.git
-
-# 国外
-git clone https://github.com/devdoz/filetas.git
+git clone https://github.com/idev-sig/filetas.git
 ```
 
 2. 安装依赖
