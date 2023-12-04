@@ -53,7 +53,7 @@ gunicorn app:app -D
 
 使用本项目提供的镜像
 
-- ghcr.io: https://github.com/devdoz/filetas/packages
+- ghcr.io: https://github.com/idev-sig/filetas/packages
 - Docker Hub: https://hub.docker.com/r/jetsung/filetas
 
 ```bash
