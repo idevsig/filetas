@@ -87,7 +87,7 @@ docker run -p 8000:8000 -d filetas gunicorn -w 4 -b 0.0.0.0:8000 app:app
 ```
 
 **docker-compose.yml**  
-参考：https://jihulab.com/jetsung/docker-compose/-/tree/main/filetas
+参考：https://git.jetsung.com/jetsung/docker-compose/-/tree/main/filetas
 
 ```yml
 version: "3"
