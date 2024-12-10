@@ -1,0 +1,11 @@
+[package]
+name = "filetas"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+axum = "0.7.9"          # 用于 Web 服务
+reqwest = { version = "0.12.9", features = ["stream"] } # HTTP 客户端
+tokio = { version = "1", features = ["full"] }       # 异步运行时
+url = "2.4"           # URL 解析
+tokio-util = "0.7"    # 用于流式响应clear
