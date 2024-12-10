@@ -7,7 +7,7 @@
 1. 下载源码
 
 ```bash
-git clone https://github.com/idevsig/filetas.git
+git clone -b python https://github.com/idevsig/filetas.git
 ```
 
 2. 安装依赖
