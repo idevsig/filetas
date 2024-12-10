@@ -2,16 +2,12 @@
 
 基于 Python + Flask 的文件传输加速服务 (File transfer acceleration service)
 
-- https://git.jetsung.com/idev/filetas
-- https://framagit.org/idev/filetas
-- https://github.com/idev-sig/filetas
-
 ## Python
 
 1. 下载源码
 
 ```bash
-git clone https://github.com/idev-sig/filetas.git
+git clone https://github.com/idevsig/filetas.git
 ```
 
 2. 安装依赖
@@ -53,15 +49,15 @@ gunicorn app:app -D
 
 使用本项目提供的镜像
 
-- ghcr.io: https://github.com/idev-sig/filetas/packages
-- Docker Hub: https://hub.docker.com/r/jetsung/filetas
+- ghcr.io: https://github.com/idevsig/filetas/packages
+- Docker Hub: https://hub.docker.com/r/idevsig/filetas
 
 ```bash
 # docker.io
-docker run -p 8000:8000 -d jetsung/filetas:latest
+docker run -p 8000:8000 -d idevsig/filetas:python
 
 # ghcr.io
-docker run -p 8000:8000 -d ghcr.io/idev-sig/filetas:latest
+docker run -p 8000:8000 -d ghcr.io/idevsig/filetas:python
 ```
 
 ### 构建
@@ -93,7 +89,7 @@ docker run -p 8000:8000 -d filetas gunicorn -w 4 -b 0.0.0.0:8000 app:app
 version: "3"
 services:
   filetas:
-    image: jetsung/filetas:latest
+    image: idevsig/filetas:python
     container_name: filetas
     restart: unless-stopped
     environment:
@@ -109,3 +105,10 @@ services:
       - TITLE=文件传输加速服务 # 网站标题
       - USERNAME= # BasicAuth 用户名
       - PASSWORD= # BasicAuth 密码
+
+---
+## 仓库镜像
+- https://git.jetsung.com/idev/filetas
+- https://framagit.org/idev/filetas
+- https://gitcode.com/idev/filetas
+- https://github.com/idevsig/filetas
