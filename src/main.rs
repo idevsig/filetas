@@ -155,7 +155,7 @@ async fn main() {
     let app = Router::new()
         .route("/favicon.ico", get(favicon_ico))
         .route("/robots.txt", get(robots_txt))
-        .route("/*uri", get(proxy))
+        .route("/{*uri}", get(proxy))
         .route("/", get(index_handler));
 
     let addr = SocketAddr::from(([0, 0, 0, 0], port));

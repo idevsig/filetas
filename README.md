@@ -35,10 +35,10 @@ Listening on 0.0.0.0:8000
 
 ## Docker
 
-使用本项目提供的镜像
-
-- ghcr.io: https://github.com/idevsig/filetas/packages
-- Docker Hub: https://hub.docker.com/r/idevsig/filetas
+| Registry                                                                                          | Image                      |
+|---------------------------------------------------------------------------------------------------|----------------------------|
+| [Docker Hub](https://hub.docker.com/r/idevsig/filetas/)                                           | `idevsig/filetas`          |
+| [GitHub Container Registry](https://github.com/idevsig/filetas/pkgs/container/filetas) | `ghcr.io/idevsig/filetas` |
 
 ```bash
 # docker.io
@@ -51,7 +51,7 @@ docker run -p 8000:8000 -d ghcr.io/idevsig/filetas:python
 ### 构建
 
 ```bash
-docker build --build-arg -t filetas .
+docker build -t filetas .
 ```
 
 ### 使用
@@ -71,11 +71,12 @@ services:
     restart: unless-stopped
     ports:
       - 8000:8000
-    command: ["filetas"]
 ```
 
 ---
+
 ## 仓库镜像
+
 - https://git.jetsung.com/idev/filetas
 - https://framagit.org/idev/filetas
 - https://gitcode.com/idev/filetas
