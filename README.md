@@ -35,17 +35,18 @@ Listening on 0.0.0.0:8000
 
 ## Docker
 
-| Registry                                                                                          | Image                      |
-|---------------------------------------------------------------------------------------------------|----------------------------|
-| [Docker Hub](https://hub.docker.com/r/idevsig/filetas/)                                           | `idevsig/filetas`          |
-| [GitHub Container Registry](https://github.com/idevsig/filetas/pkgs/container/filetas) | `ghcr.io/idevsig/filetas` |
+| Registry                                                                                          | Image                      
+|---------------------------------------------------------------------------------------------------|----------------------------
+| [**Docker Hub**](https://hub.docker.com/r/idevsig/filetas/)                                           | `idevsig/filetas`          
+| [**GitHub Container Registry**](https://github.com/idevsig/filetas/pkgs/container/filetas)            | `ghcr.io/idevsig/filetas` 
+| **Tencent Cloud Container Registry** | `ccr.ccs.tencentyun.com/idevsig/filetas`
 
 ```bash
 # docker.io
-docker run -p 8000:8000 -d idevsig/filetas:python
+docker run -p 8000:8000 -d idevsig/filetas:latest
 
 # ghcr.io
-docker run -p 8000:8000 -d ghcr.io/idevsig/filetas:python
+docker run -p 8000:8000 -d ghcr.io/idevsig/filetas:latest
 ```
 
 ### 构建
