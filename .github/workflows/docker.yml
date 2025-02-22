@@ -1,4 +1,4 @@
-name: Docker Build and Publish
+name: Docker
 
 on:
   push:
@@ -10,14 +10,17 @@ on:
     paths:
       - "Containerfile"
       - ".github/workflows/docker.yml"
-      - "src/*"
       - "src/**"
       - "Cargo.toml"
 
 jobs:
   docker:
-    name: Docker Build and Push
+    name: Build and Push
     runs-on: ubuntu-latest
+    env:
+      acr_registry: registry.cn-hangzhou.aliyuncs.com
+      hcr_registry: swr.ap-southeast-3.myhuaweicloud.com
+      tcr_registry: ccr.ccs.tencentyun.com
     steps:
       - name: Checkout Source Code
         uses: actions/checkout@v4
@@ -29,64 +32,168 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Check Docker Hub Credentials
-        id: check_docker_creds
-        run: |
-          if [[ -n "${{ secrets.DOCKERHUB_USERNAME }}" && -n "${{ secrets.DOCKERHUB_TOKEN }}" ]]; then
-            echo "docker_creds_exist=true" >> $GITHUB_OUTPUT
-          else
-            echo "docker_creds_exist=false" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Login to Docker Hub (if credentials are provided)
-        if: steps.check_docker_creds.outputs.docker_creds_exist == 'true'
-        uses: docker/login-action@v3
-        with:
-          registry: docker.io
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - name: Generate Tags
-        id: generate_tags
+      - name: Generate Github Container Registry Tags
+        id: ghcr_tag
         env:
-          IMAGE_REPO: ${{ github.repository_owner }}/filetas
+          IMAGE_REPO: ghcr.io/${{ github.repository_owner }}/filetas
         run: |
-          # GHCR Repository
-          GHCR_REPO="ghcr.io/$IMAGE_REPO"
-
           # Check if the current ref is a tag
           if [[ "${{ github.ref_type }}" == "tag" ]]; then
             # delete tag as v0.1.0 to 0.1.0
             ref_tag="${{ github.ref_name }}"
             ref_tag="${ref_tag#v}"
             echo "Detected tag: $ref_tag"
-            echo "ghcr_image_tag=$GHCR_REPO:$ref_tag" >> $GITHUB_OUTPUT
-            echo "ghcr_image_latest=$GHCR_REPO:latest" >> $GITHUB_OUTPUT
+            echo "tag=$IMAGE_REPO:$ref_tag" >> $GITHUB_OUTPUT
+            echo "latest=$IMAGE_REPO:latest" >> $GITHUB_OUTPUT
           elif [[ "${{ github.ref_name }}" == "main" ]]; then
-            echo "ghcr_image_tag=$GHCR_REPO:main" >> $GITHUB_OUTPUT
+            echo "tag=$IMAGE_REPO:main" >> $GITHUB_OUTPUT
           else
-            echo "ghcr_image_tag=$GHCR_REPO:dev" >> $GITHUB_OUTPUT
+            echo "tag=$IMAGE_REPO:dev" >> $GITHUB_OUTPUT
+          fi    
+
+      - name: Check Docker Hub Credentials
+        id: check_docker_creds
+        run: |
+          if [[ -n "${{ secrets.DOCKERHUB_USERNAME }}" && -n "${{ secrets.DOCKERHUB_TOKEN }}" ]]; then
+            echo "creds_exist=true" >> $GITHUB_OUTPUT
+          else
+            echo "creds_exist=false" >> $GITHUB_OUTPUT
           fi
+      - name: Login to Docker Hub 
+        if: steps.check_docker_creds.outputs.creds_exist == 'true'
+        uses: docker/login-action@v3
+        with:
+          registry: docker.io
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Generate Docker Hub Tags
+        id: dockerhub_tag
+        if: steps.check_docker_creds.outputs.creds_exist == 'true'
+        env:
+          IMAGE_REPO: ${{ github.repository_owner }}/filetas
+        run: |
+          # Check if the current ref is a tag
+          if [[ "${{ github.ref_type }}" == "tag" ]]; then
+            # delete tag as v0.1.0 to 0.1.0
+            ref_tag="${{ github.ref_name }}"
+            ref_tag="${ref_tag#v}"
+            echo "Detected tag: $ref_tag"
+            echo "tag=$IMAGE_REPO:$ref_tag" >> $GITHUB_OUTPUT
+            echo "latest=$IMAGE_REPO:latest" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.ref_name }}" == "main" ]]; then
+            echo "tag=$IMAGE_REPO:main" >> $GITHUB_OUTPUT
+          else
+            echo "tag=$IMAGE_REPO:dev" >> $GITHUB_OUTPUT
+          fi   
 
-          # Docker Repository
-          DOCKER_REPO="docker.io/$IMAGE_REPO"
-
-          # Docker Hub tags (if credentials provided)
-          if [[ "${{ steps.check_docker_creds.outputs.docker_creds_exist }}" == "true" ]]; then
-            if [[ "${{ github.ref_type }}" == "tag" ]]; then
-              ref_tag="${{ github.ref_name }}"
-              ref_tag="${ref_tag#v}"
-              echo "Detected tag: $ref_tag"
-              echo "docker_image_tag=$DOCKER_REPO:$ref_tag" >> $GITHUB_OUTPUT
-              echo "docker_image_latest=$DOCKER_REPO:latest" >> $GITHUB_OUTPUT
-            elif [[ "${{ github.ref_name }}" == "main" ]]; then
-              echo "docker_image_tag=$DOCKER_REPO:main" >> $GITHUB_OUTPUT
-            else
-              echo "docker_image_tag=$DOCKER_REPO:dev" >> $GITHUB_OUTPUT
-            fi
+      - name: Check Aliyun Credentials
+        id: check_aliyun_creds
+        run: |
+          if [[ -n "${{ secrets.ALIYUN_USERNAME }}" && -n "${{ secrets.ALIYUN_TOKEN }}" ]]; then
+            echo "creds_exist=true" >> $GITHUB_OUTPUT
+          else
+            echo "creds_exist=false" >> $GITHUB_OUTPUT
           fi
+      - name: Login to Aliyun 
+        if: steps.check_aliyun_creds.outputs.creds_exist == 'true'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.acr_registry }}
+          username: ${{ secrets.ALIYUN_USERNAME }}
+          password: ${{ secrets.ALIYUN_TOKEN }}
+      - name: Generate Aliyun Container Registry Tags
+        id: acr_tag
+        if: steps.check_aliyun_creds.outputs.creds_exist == 'true'
+        env:
+          IMAGE_REPO:  ${{ env.acr_registry }}/${{ github.repository_owner }}/filetas
+        run: |
+          # Check if the current ref is a tag
+          if [[ "${{ github.ref_type }}" == "tag" ]]; then
+            # delete tag as v0.1.0 to 0.1.0
+            ref_tag="${{ github.ref_name }}"
+            ref_tag="${ref_tag#v}"
+            echo "Detected tag: $ref_tag"
+            echo "tag=$IMAGE_REPO:$ref_tag" >> $GITHUB_OUTPUT
+            echo "latest=$IMAGE_REPO:latest" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.ref_name }}" == "main" ]]; then
+            echo "tag=$IMAGE_REPO:main" >> $GITHUB_OUTPUT
+          else
+            echo "tag=$IMAGE_REPO:dev" >> $GITHUB_OUTPUT
+          fi   
 
-          ls -lah
+      - name: 华为云无法推送
+        run: |
+          echo "华为云无法推送："
+          echo "buildx failed with: ERROR: failed to solve: failed to push xxx: failed commit on ref "index-sha256:xxx": unexpected status from PUT request to https://xxx: 400 Bad Request"
+      - name: Check Huawei Cloud Credentials
+        id: check_huawei_creds
+        run: |
+          if [[ -n "${{ secrets.HUAWEI_USERNAME }}" && -n "${{ secrets.HUAWEI_TOKEN }}" ]]; then
+            echo "creds_exist=true" >> $GITHUB_OUTPUT
+          else
+            echo "creds_exist=false" >> $GITHUB_OUTPUT
+          fi
+      - name: Login to Huawei Cloud 
+        if: steps.check_huawei_creds.outputs.creds_exist == 'true'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.hcr_registry }}
+          username: ${{ secrets.HUAWEI_USERNAME }}
+          password: ${{ secrets.HUAWEI_TOKEN }}
+      - name: Generate Huawei Cloud Container Registry Tags
+        id: hcr_tag
+        if: steps.check_huawei_creds.outputs.creds_exist == 'true'
+        env:
+          IMAGE_REPO:  ${{ env.hcr_registry }}/${{ github.repository_owner }}/filetas
+        run: |
+          # Check if the current ref is a tag
+          if [[ "${{ github.ref_type }}" == "tag" ]]; then
+            # delete tag as v0.1.0 to 0.1.0
+            ref_tag="${{ github.ref_name }}"
+            ref_tag="${ref_tag#v}"
+            echo "Detected tag: $ref_tag"
+            echo "tag=$IMAGE_REPO:$ref_tag" >> $GITHUB_OUTPUT
+            echo "latest=$IMAGE_REPO:latest" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.ref_name }}" == "main" ]]; then
+            echo "tag=$IMAGE_REPO:main" >> $GITHUB_OUTPUT
+          else
+            echo "tag=$IMAGE_REPO:dev" >> $GITHUB_OUTPUT
+          fi   
+
+      - name: Check Tencent Cloud Credentials
+        id: check_tencent_creds
+        run: |
+          if [[ -n "${{ secrets.TENCENT_USERNAME }}" && -n "${{ secrets.TENCENT_TOKEN }}" ]]; then
+            echo "creds_exist=true" >> $GITHUB_OUTPUT
+          else
+            echo "creds_exist=false" >> $GITHUB_OUTPUT
+          fi
+      - name: Login to Tencent Cloud
+        if: steps.check_tencent_creds.outputs.creds_exist == 'true'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.tcr_registry }}
+          username: ${{ secrets.TENCENT_USERNAME }}
+          password: ${{ secrets.TENCENT_TOKEN }}
+      - name: Generate Tencent Cloud Container Registry Tags
+        id: tcr_tag
+        if: steps.check_tencent_creds.outputs.creds_exist == 'true'
+        env:
+          IMAGE_REPO:  ${{ env.tcr_registry }}/${{ github.repository_owner }}/filetas
+        run: |
+          # Check if the current ref is a tag
+          if [[ "${{ github.ref_type }}" == "tag" ]]; then
+            # delete tag as v0.1.0 to 0.1.0
+            ref_tag="${{ github.ref_name }}"
+            ref_tag="${ref_tag#v}"
+            echo "Detected tag: $ref_tag"
+            echo "tag=$IMAGE_REPO:$ref_tag" >> $GITHUB_OUTPUT
+            echo "latest=$IMAGE_REPO:latest" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.ref_name }}" == "main" ]]; then
+            echo "tag=$IMAGE_REPO:main" >> $GITHUB_OUTPUT
+          else
+            echo "tag=$IMAGE_REPO:dev" >> $GITHUB_OUTPUT
+          fi   
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -102,7 +209,13 @@ jobs:
           platforms: linux/amd64, linux/arm64
           file: Containerfile
           tags: |
-            ${{ steps.generate_tags.outputs.ghcr_image_tag }}
-            ${{ steps.generate_tags.outputs.ghcr_image_latest || '' }}
-            ${{ steps.generate_tags.outputs.docker_image_tag || '' }}
-            ${{ steps.generate_tags.outputs.docker_image_latest || '' }}
+            ${{ steps.ghcr_tag.outputs.tag || '' }}
+            ${{ steps.ghcr_tag.outputs.latest || '' }}
+            ${{ steps.dockerhub_tag.outputs.tag || '' }}
+            ${{ steps.dockerhub_tag.outputs.latest || '' }}
+            ${{ steps.acr_tag.outputs.tag || '' }}
+            ${{ steps.acr_tag.outputs.latest || '' }}
+            ${{ steps.hcr_tag.outputs.tag || '' }}
+            ${{ steps.hcr_tag.outputs.latest || '' }}
+            ${{ steps.tcr_tag.outputs.tag || '' }}
+            ${{ steps.tcr_tag.outputs.latest || '' }}
