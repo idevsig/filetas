@@ -219,3 +219,9 @@ jobs:
             ${{ steps.hcr_tag.outputs.latest || '' }}
             ${{ steps.tcr_tag.outputs.tag || '' }}
             ${{ steps.tcr_tag.outputs.latest || '' }}
+
+      - uses: actions/delete-package-versions@v5
+        with: 
+          package-name: 'filetas'
+          package-type: 'container'
+          delete-only-untagged-versions: 'true'              
