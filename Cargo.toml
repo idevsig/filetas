@@ -1,11 +1,13 @@
 [package]
 name = "filetas"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2024"
 
 [dependencies]
 axum = "0.8.1"          # 用于 Web 服务
-reqwest = { version = "0.12.12", features = ["stream"] } # HTTP 客户端
-tokio = { version = "1.43.0", features = ["full"] }       # 异步运行时
+tokio = { version = "1.44.0", features = ["full"] }       # 异步运行时
 url = "2.5.4"           # URL 解析
 tokio-util = "0.7.13"    # 用于流式响应clear
+regex = "1.11.1"
+hyper-util = { version = "0.1", features = ["full"] }
+reqwest = "0.12.12"

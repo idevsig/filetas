@@ -8,17 +8,51 @@ on:
     tags:
       - "*"
     paths:
-      - "Containerfile"
+      - "Dockerfile"
       - ".github/workflows/docker.yml"
       - "src/**"
       - "Cargo.toml"
 
 jobs:
-  docker:
+  develop:
     name: Build and Push
     runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/dev'
     env:
-      acr_registry: registry.cn-hangzhou.aliyuncs.com
+      package_name: filetas
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Login to GitHub Container Registry (ghcr.io)
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build Images (dev)
+        uses: docker/build-push-action@v6
+        with:
+          push: true
+          context: .
+          platforms: linux/amd64
+          file: Dockerfile
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/${{ env.package_name }}:dev
+      - uses: actions/delete-package-versions@v5
+        continue-on-error: true
+        with: 
+          package-name: ${{ env.package_name }}
+          package-type: 'container'
+          delete-only-untagged-versions: 'true'              
+
+  release:
+    name: Build and Push
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    env:
+      package_name: mindoc
+      acr_registry: crpi-6q2ncgoagz57loxj.cn-guangzhou.personal.cr.aliyuncs.com
       hcr_registry: swr.ap-southeast-3.myhuaweicloud.com
       tcr_registry: ccr.ccs.tencentyun.com
     steps:
@@ -35,7 +69,7 @@ jobs:
       - name: Generate Github Container Registry Tags
         id: ghcr_tag
         env:
-          IMAGE_REPO: ghcr.io/${{ github.repository_owner }}/filetas
+          IMAGE_REPO: ghcr.io/${{ github.repository_owner }}/${{ env.package_name }}
         run: |
           # Check if the current ref is a tag
           if [[ "${{ github.ref_type }}" == "tag" ]]; then
@@ -70,7 +104,7 @@ jobs:
         id: dockerhub_tag
         if: steps.check_docker_creds.outputs.creds_exist == 'true'
         env:
-          IMAGE_REPO: ${{ github.repository_owner }}/filetas
+          IMAGE_REPO: ${{ github.repository_owner }}/${{ env.package_name }}
         run: |
           # Check if the current ref is a tag
           if [[ "${{ github.ref_type }}" == "tag" ]]; then
@@ -105,7 +139,7 @@ jobs:
         id: acr_tag
         if: steps.check_aliyun_creds.outputs.creds_exist == 'true'
         env:
-          IMAGE_REPO:  ${{ env.acr_registry }}/${{ github.repository_owner }}/filetas
+          IMAGE_REPO:  ${{ env.acr_registry }}/${{ github.repository_owner }}/${{ env.package_name }}
         run: |
           # Check if the current ref is a tag
           if [[ "${{ github.ref_type }}" == "tag" ]]; then
@@ -144,7 +178,7 @@ jobs:
         id: hcr_tag
         if: steps.check_huawei_creds.outputs.creds_exist == 'true'
         env:
-          IMAGE_REPO:  ${{ env.hcr_registry }}/${{ github.repository_owner }}/filetas
+          IMAGE_REPO:  ${{ env.hcr_registry }}/${{ github.repository_owner }}/${{ env.package_name }}
         run: |
           # Check if the current ref is a tag
           if [[ "${{ github.ref_type }}" == "tag" ]]; then
@@ -179,7 +213,7 @@ jobs:
         id: tcr_tag
         if: steps.check_tencent_creds.outputs.creds_exist == 'true'
         env:
-          IMAGE_REPO:  ${{ env.tcr_registry }}/${{ github.repository_owner }}/filetas
+          IMAGE_REPO:  ${{ env.tcr_registry }}/${{ github.repository_owner }}/${{ env.package_name }}
         run: |
           # Check if the current ref is a tag
           if [[ "${{ github.ref_type }}" == "tag" ]]; then
@@ -201,13 +235,14 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build and Push Docker Images
+      - name: Build Images (main)
         uses: docker/build-push-action@v6
+        if: github.ref == 'refs/heads/main'
         with:
           push: true
           context: .
           platforms: linux/amd64, linux/arm64
-          file: Containerfile
+          file: Dockerfile
           tags: |
             ${{ steps.ghcr_tag.outputs.tag || '' }}
             ${{ steps.ghcr_tag.outputs.latest || '' }}
@@ -221,7 +256,9 @@ jobs:
             ${{ steps.tcr_tag.outputs.latest || '' }}
 
       - uses: actions/delete-package-versions@v5
+        continue-on-error: true
         with: 
-          package-name: 'filetas'
+          package-name: ${{ env.package_name }}
           package-type: 'container'
           delete-only-untagged-versions: 'true'              
+              
