@@ -4,7 +4,7 @@ WORKDIR /app
 COPY . .
 RUN cargo install --path .
 
-FROM gcr.io/distroless/cc-debian12
+FROM gcr.io/distroless/cc-debian12:latest
 LABEL maintainer="Jetsung Chan<i@jetsung.com"
 
 WORKDIR /app
