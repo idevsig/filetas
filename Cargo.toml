@@ -10,4 +10,5 @@ url = "2.5.4"           # URL 解析
 tokio-util = "0.7.13"    # 用于流式响应clear
 regex = "1.11.1"
 hyper-util = { version = "0.1", features = ["full"] }
-reqwest = "0.12.12"
+reqwest = { version = "0.12.12", features = ["stream"] } # HTTP 客户端
+
