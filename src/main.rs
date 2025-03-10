@@ -1,8 +1,15 @@
-use std::{collections::HashMap, env, net::SocketAddr};
+use std::{env, net::SocketAddr};
 
-use axum::{body::Body, extract::Request, http::{self, header, HeaderMap, StatusCode}, response::{Html, IntoResponse}, routing::{any, get}, Router};
-use url::Url;
+use axum::{
+    Router,
+    body::Body,
+    extract::Request,
+    http::{self, HeaderMap, StatusCode, header},
+    response::{Html, IntoResponse},
+    routing::{any, get},
+};
 use regex::Regex;
+use url::Url;
 
 // 静态文件扩展名，用于判断是否为下载链接
 static FILE_EXT: &str = ""; // 逗号分隔的扩展名列表
@@ -37,9 +44,9 @@ async fn proxy(uri: &str, req: Request) -> impl IntoResponse {
     // // 处理数据流
     // let req_body = reqwest::Body::wrap_stream(data_stream);
     // req_builder = req_builder.body(req_body);
-    
+
     // // 发送请求并获取响应
-    // // let res = req_builder.send().await.map_err(|_| StatusCode::BAD_GATEWAY);   
+    // // let res = req_builder.send().await.map_err(|_| StatusCode::BAD_GATEWAY);
 
     // let response = match req_builder.send().await {
     //     Ok(resp) => {
@@ -52,7 +59,7 @@ async fn proxy(uri: &str, req: Request) -> impl IntoResponse {
 
     //                     for (key, value) in new_headers.iter() {
     //                         builder = builder.header(key, value);
-    //                     }     
+    //                     }
 
     //                     builder.method(method).
     //                         uri(new_uri).
@@ -63,7 +70,7 @@ async fn proxy(uri: &str, req: Request) -> impl IntoResponse {
     //                 }
     //             }
     //         }
-            
+
     //         stream_response(resp).await
     //     }
     //     Err(_) => {
@@ -87,7 +94,7 @@ async fn proxy(uri: &str, req: Request) -> impl IntoResponse {
     //             return proxy(localtion, req).await;
     //         }
     //         // let body = resp.text().await.unwrap_or_default();
-    //         // (status, headers, Html(body))                
+    //         // (status, headers, Html(body))
     //         let response = stream_response(resp).await;
     //         return response
     //         // response.into_response()
@@ -100,16 +107,14 @@ async fn proxy(uri: &str, req: Request) -> impl IntoResponse {
     //         let status = resp.status();
     //         let headers = resp.headers().clone();
     //         let body = resp.text().await.unwrap_or_default();
-    //         (status, headers, Html(body))            
+    //         (status, headers, Html(body))
     //         // stream_response(resp).await
     //     },
     //     Err(_) => error_response("无法访问目标地址，请检查链接是否正确", StatusCode::BAD_REQUEST, headers)
-    // }    
+    // }
     // error_response( "Invalid URL", StatusCode::BAD_REQUEST, &headers).into_response()
     // return resp.into_response();
 }
-
-
 
 // // 流式传输响应体
 // async fn stream_response(resp: reqwest::Response) -> impl IntoResponse {
@@ -154,11 +159,10 @@ async fn handler_favicon() -> impl IntoResponse {
     headers.insert(header::CONTENT_TYPE, "image/svg+xml".parse().unwrap());
 
     (StatusCode::OK, headers, svg_data)
-    
 }
 
 // 处理 robots.txt 请求
-async fn handler_robots() -> impl IntoResponse  {
+async fn handler_robots() -> impl IntoResponse {
     let mut headers = HeaderMap::new();
     headers.insert(header::CONTENT_TYPE, "text/plain".parse().unwrap());
 
@@ -184,66 +188,36 @@ async fn handler_download(req: Request<Body>) -> impl IntoResponse {
     };
 
     println!("{:?}", target_url);
-    
+
     println!("{:?}", req.method());
     println!("{:?}", req.uri());
     println!("{:?}", req.headers());
     println!("");
-    println!("");   
+    println!("");
 
     // (StatusCode::OK, "OK").into_response()
     handler(&target_url, req).await.into_response()
-}
-
-fn custom_redirect_policy() -> reqwest::redirect::Policy {
-    reqwest::redirect::Policy::custom(|attempt| {
-        println!("{:?}", attempt);
-        // 自定义重定向逻辑
-        if attempt.previous().len() > 5 {
-            // 如果重定向次数超过5次，返回错误
-            attempt.error("too many redirects")
-        } else if attempt.url().host_str() == Some("example.domain") {
-            // 如果重定向到 example.domain，停止重定向
-            attempt.stop()
-        } else {
-            // 否则继续重定向
-            attempt.follow()
-        }
-    })
 }
 
 // 发送请求
 async fn send_request(
     method: reqwest::Method,
     url: &str,
-    headers: HashMap<String, String>,
+    headers: &HeaderMap,
     body: Option<String>,
 ) -> Result<reqwest::Response, reqwest::Error> {
-
-     let custom = reqwest::redirect::Policy::custom(|attempt| {
-         println!("{:?}", attempt);
-         if attempt.previous().len() > 1 {
-             attempt.error("too many redirects")
-         } else if attempt.url().host_str() == Some("example.domain") {
-             // prevent redirects to 'example.domain'
-             attempt.stop()
-         } else {
-             attempt.follow()
-         }
-     });
-
-    // let proxy = reqwest::Proxy::http("http://127.0.0.1:40003")?;
     let client = reqwest::Client::builder()
-        // .proxy(proxy)
-        // .redirect(reqwest::redirect::Policy::none())
-        .redirect(custom)
-        // .redirect(custom_redirect_policy())
-        .build()?;
+        .redirect(reqwest::redirect::Policy::none())
+        .build()
+        .unwrap();
 
     let mut builder = client.request(method.clone(), url);
 
     for (key, value) in headers.iter() {
-        builder = builder.header(key, value);
+        println!("{:?}", key);
+        println!("{:?}", value);
+        println!("");
+        // builder = builder.header(key, value);
     }
 
     if let Some(body) = body.as_ref() {
@@ -262,35 +236,19 @@ async fn send_request(
             println!("location: {:?}", location);
             if let Ok(location_str) = location.to_str() {
                 println!("Redirecting1 to: {}", location_str);
-
-                // 构建新的请求
-                let new_url = if url.parse::<http::Uri>().unwrap().authority().is_some() {
-                    // 如果原始 URL 有权威部分（域名），则重定向 URL 是绝对路径
-                    location_str.to_string()
-                    // println!("Redirecting to: {}", location_str.to_string());
-                } else {
-                    // 如果原始 URL 没有权威部分，则重定向 URL 是相对路径，需要拼接原始 URL 的域名
-                    let original_uri = url.parse::<http::Uri>().unwrap();
-                    let scheme = original_uri.scheme_str().unwrap_or("https");
-                    let authority = original_uri.authority().unwrap();
-                    format!("{}://{}{}", scheme, authority, location_str)
-                };
-                println!("Redirecting2 to: {}", new_url);
-
-                // 递归调用 send_request 来获取重定向后的数据
-                return Box::pin(send_request(method, &new_url, headers, body)).await;
+                return Box::pin(send_request(method, &location_str, headers, body)).await;
             }
         }
     }
 
-println!("c");
+    println!("c");
     Ok(response)
 }
 
 async fn middle(
     method: &str,
     url: &str,
-    headers: HashMap<String, String>,
+    headers: &HeaderMap,
     body: Option<String>,
 ) -> Result<reqwest::Response, reqwest::Error> {
     let method = reqwest::Method::from_bytes(method.as_bytes()).unwrap();
@@ -302,20 +260,14 @@ async fn middle(
 // 主路由处理函数
 async fn handler(req_url: &str, req: Request<Body>) -> impl IntoResponse {
     let method = req.method().as_str();
-    let headers = req.headers().clone();
-    let mut headers_map = HashMap::new();
-    for (key, value) in headers.iter() {
-        println!("{:?}: {:?}", key, value);
-        headers_map.insert(key.to_string(), value.to_str().unwrap().to_string());
-    }
     println!("{:?}", method);
     println!("{:?}", req_url);
 
-    let response =  middle(method, req_url, headers_map, None).await;
+    let response = middle(method, req_url, req.headers(), None).await;
 
     println!("");
     println!("WORLD: {:?}", response);
- 
+
     (StatusCode::OK, "OK")
 }
 
@@ -343,7 +295,11 @@ fn is_download_url(url: &str) -> bool {
                 return last_segment
                     .split('.')
                     .last()
-                    .map(|extension| FILE_EXT.split(',').any(|ext| ext.eq_ignore_ascii_case(extension)))
+                    .map(|extension| {
+                        FILE_EXT
+                            .split(',')
+                            .any(|ext| ext.eq_ignore_ascii_case(extension))
+                    })
                     .unwrap_or(false);
             }
         }
@@ -354,7 +310,10 @@ fn is_download_url(url: &str) -> bool {
 #[tokio::main]
 async fn main() {
     let host = env::var("HOST").unwrap_or_else(|_| "0.0.0.0".to_string());
-    let port: u16 = env::var("PORT").ok().and_then(|p| p.parse().ok()).unwrap_or(8000);
+    let port: u16 = env::var("PORT")
+        .ok()
+        .and_then(|p| p.parse().ok())
+        .unwrap_or(8000);
 
     let app = Router::new()
         .route("/", get(handler_index))
@@ -363,11 +322,9 @@ async fn main() {
         .route("/{*uri}", any(handler_download));
 
     let addr = SocketAddr::new(host.parse().unwrap(), port);
-    
-    let listener = tokio::net::TcpListener::bind(addr)
-    .await
-    .unwrap();
-    
+
+    let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
+
     println!("Listening on {}", listener.local_addr().unwrap());
     axum::serve(listener, app).await.unwrap();
 }
