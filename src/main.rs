@@ -134,7 +134,7 @@ async fn send_request(
     body: Option<String>,
 ) -> Result<reqwest::Response, reqwest::Error> {
     let client = reqwest::Client::builder()
-        // .redirect(reqwest::redirect::Policy::none())
+        .redirect(reqwest::redirect::Policy::none())
         .build()
         .unwrap();
 
@@ -142,18 +142,21 @@ async fn send_request(
 
     println!("url: {:?}", &url);
 
-    // for (key, value) in headers.iter() {
-    //     println!("key: {:?}, value: {:?}", key, value);
-    //     println!("");
-    //     if key == header::HOST {
-    //         let parsed_url = Url::parse(&url) .unwrap();
-    //         let new_value = parsed_url.host_str().unwrap().to_string();
-    //         let header_value = HeaderValue::from_str(&new_value).unwrap();
-    //         builder = builder.header(key, header_value);
-    //         continue;
-    //     }
-    //     builder = builder.header(key, value);
-    // }
+    for (key, value) in headers.iter() {
+        println!("key: {:?}, value: {:?}", key, value);
+        println!("");
+        if key == header::HOST {
+            let parsed_url = Url::parse(&url) .unwrap();
+            let new_value = parsed_url.host_str().unwrap().to_string();
+            let header_value = HeaderValue::from_str(&new_value).unwrap();
+            builder = builder.header(key, header_value);
+            continue;
+        }
+        if key == header::CONTENT_LENGTH {
+            continue;
+        }
+        builder = builder.header(key, value);
+    }
 
     if let Some(body) = body.as_ref() {
         builder = builder.body(body.clone());
@@ -174,7 +177,7 @@ async fn send_request(
             println!("location: {:?}", location);
             if let Ok(location_str) = location.to_str() {
                 println!("Redirecting1 to: {}", location_str);
-                return Box::pin(send_request(method, &location_str, &new_headers, body)).await;
+                return Box::pin(send_request(method, &location_str, &headers, body)).await;
             }
         }
     }
