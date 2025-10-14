@@ -3,14 +3,6 @@
 ## https://github.com/crazy-max/buildx#remote-with-local
 ## https://github.com/docker/metadata-action
 
-variable "UV_DEFAULT_INDEX" {
-    default = "https://mirrors.huaweicloud.com/repository/pypi/simple"
-}
-
-variable "GITHUB_PROXY" {
-    default = "https://fastfile.asfd.cn/"
-}
-
 ## Special target: https://github.com/docker/metadata-action#bake-definition
 target "docker-metadata-action" {}
 
@@ -32,10 +24,6 @@ target "_common" {
 
 target "default" {
     inherits = ["_common"]
-    args = {
-        UV_DEFAULT_INDEX = "${UV_DEFAULT_INDEX}"
-        GITHUB_PROXY = "${GITHUB_PROXY}"
-    }    
     tags = [
       "filetas:local",
     ]

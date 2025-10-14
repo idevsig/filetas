@@ -151,15 +151,32 @@ RUST_LOG=filetas=trace,tower_http=debug filetas
 
 ### 使用预构建镜像
 
+#### 可用镜像仓库
+
+| 镜像仓库                  | 镜像地址                                                    | 说明              |
+| ------------------------- | ----------------------------------------------------------- | ----------------- |
+| Docker Hub                | `idevsig/filetas:latest`                                    | 官方镜像仓库      |
+| GitHub Container Registry | `ghcr.io/idev-sig/filetas:latest`                           | GitHub 容器注册表 |
+| 阿里云容器镜像服务        | `registry.cn-guangzhou.aliyuncs.com/idevsig/filetas:latest` | 阿里云镜像        |
+| 腾讯云容器镜像服务        | `sgccr.ccs.tencentyun.com/idevsig/filetas:latest`           | 腾讯云镜像        |
+
+#### 运行示例
+
 ```bash
 # Docker Hub
 docker run -p 8000:8000 -d idevsig/filetas:latest
 
-# GitHub Container Registry
+# GitHub Contgistry
 docker run -p 8000:8000 -d ghcr.io/idev-sig/filetas:latest
 
+# 阿里云镜像（国内用户推荐）
+docker run -p 8000:8000 -d registry.cn-guangzhou.aliyuncs.com/idevsig/filetas:latest
+
+# 腾讯云镜像
+docker run -p 8000:8000 -d sgccr.ccs.tencentyun.com/idevsig/filetas:latest
+
 # 自定义配置
-docker run -p 3000:3000 -e PORT=3000 -e TITLE="My File Server" -d idevsig/filetas:latest
+dockrun -p 3000:3000 -e PORT=3000 -e TITLE="My File Server" -d idevsig/filetas:latest
 ```
 
 ### Docker Compose
@@ -229,13 +246,15 @@ window.open(downloadUrl);
 
 ```
 filetas/
+├── docker/
+│   └── Dockerfile              # Docker 构建文件
 ├── src/
-│   └── main.rs          # 主程序
+│   └── main.rs                 # 主程序
 ├── templates/
-│   └── index.html       # Web 界面模板
-├── Cargo.toml           # 项目配置
-├── Dockerfile           # Docker 构建文件
-└── README.md            # 项目文档
+│   └── index.html              # Web 界面模板
+├── Cargo.toml                  # 项目配置
+├── Cargo.lock                  # 依赖锁定文件
+└── docker-bake.hcl             # Docker Bake 构建配置
 ```
 
 ### 本地开发
