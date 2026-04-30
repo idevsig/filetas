@@ -1,10 +1,10 @@
-FROM rust:bookworm AS builder
+FROM rust:1-trixie AS builder
 
 WORKDIR /app
 COPY . .
 RUN cargo install --path .
 
-FROM gcr.io/distroless/cc-debian12:latest
+FROM gcr.io/distroless/cc-debian13:latest
 LABEL maintainer="Jetsung Chan<i@jetsung.com"
 
 WORKDIR /app

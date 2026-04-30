@@ -4,14 +4,16 @@
 
 ## 功能特性
 
-- **高性能**: 基于 Rust 和 Axum 框架，提供极致性能
-- **GitHub 加速**: 自动识别并加速 GitHub 文件下载
-- **智能重定向**: 自动处理 HTTP 重定向和 URL 转换
-- **CORS 支持**: 完整的跨域资源共享支持
-- **现代界面**: 蓝色渐变设计的现代化 Web 界面
-- **详细日志**: 结构化日志记录，支持多级别日志输出
-- **灵活配置**: 支持命令行参数和环境变量配置
-- **容器化**: 提供 Docker 镜像，支持容器化部署
+- **高性能**: 基于 Rust 和 Axum 框架，提供极致性能。
+- **GitHub 加速**: 自动识别并加速 GitHub 文件下载。
+- **GitHub API 支持**: 支持通过 `GITHUB_TOKEN` 环境变量进行身份验证，避免 API 速率限制。
+- **智能重定向**: 自动处理 HTTP 重定向和 URL 转换。
+- **CORS 支持**: 完整的跨域资源共享支持。
+- **多种访问方式**: 支持带协议头（`https://...`）、不带协议头（`github.com/...`）或单斜杠（`https:/github.com/...`）的代理请求。
+- **现代界面**: 蓝色渐变设计的现代化 Web 界面。
+- **详细日志**: 结构化日志记录，支持多级别日志输出。
+- **灵活配置**: 支持命令行参数和环境变量配置。
+- **容器化**: 提供 Docker 镜像，支持 amd64/arm64 多平台部署。
 
 ## 快速开始
 
@@ -34,7 +36,7 @@ brew install pkg-config openssl
 1. **下载源码**
 
 ```bash
-git clone https://github.com/idev-sig/filetas.git
+git clone https://github.com/idevsig/filetas.git
 cd filetas
 ```
 
@@ -86,7 +88,7 @@ filetas --title "我的文件服务器"
 filetas --verbose
 
 # 使用环境变量
-HOST=0.0.0.0 PORT=8080 TITLE="File Server" filetas
+HOST=0.0.0.0 PORT=8080 TITLE="File Server" GITHUB_TOKEN=your_token filetas
 
 # 组合使用
 RUST_LOG=debug filetas --port 8080 --title "开发服务器"
@@ -94,14 +96,15 @@ RUST_LOG=debug filetas --port 8080 --title "开发服务器"
 
 ### 环境变量
 
-| 变量名         | 描述           | 默认值                         |
-| -------------- | -------------- | ------------------------------ |
-| `HOST`         | 服务器监听地址 | `0.0.0.0`                      |
-| `PORT`         | 服务器端口     | `8000`                         |
-| `TITLE`        | 页面标题       | `文件加速下载`                 |
-| `TEMPLATE_DIR` | 模板目录路径   | `templates`                    |
-| `USER_AGENT`   | 请求用户代理   | `Mozilla/5.0 ...`              |
-| `RUST_LOG`     | 日志级别       | `filetas=info,tower_http=info` |
+| 变量名         | 描述                                     | 默认值                         |
+| -------------- | ---------------------------------------- | ------------------------------ |
+| `HOST`         | 服务器监听地址                           | `0.0.0.0`                      |
+| `PORT`         | 服务器端口                               | `8000`                         |
+| `TITLE`        | 页面标题                                 | `文件加速下载`                 |
+| `TEMPLATE_DIR` | 模板目录路径                             | `templates`                    |
+| `USER_AGENT`   | 请求用户代理                             | `Mozilla/5.0 ...`              |
+| `GITHUB_TOKEN` | GitHub 个人访问令牌（用于 API 加速）     | (无)                           |
+| `RUST_LOG`     | 日志级别                                 | `filetas=info,tower_http=info` |
 
 ### 日志配置
 
@@ -134,6 +137,13 @@ RUST_LOG=filetas=trace,tower_http=debug filetas
 - **Gist**: `https://gist.github.com/user/gist-id/raw/file.txt`
 - **Tags**: `https://github.com/user/repo/tags`
 
+### 多种请求方式示例
+
+服务支持非常灵活的 URL 格式，会自动识别并补全：
+- `http://localhost:8000/https://github.com/user/repo/archive/main.zip` (完整 URL)
+- `http://localhost:8000/github.com/user/repo/archive/main.zip` (自动补全 https)
+- `http://localhost:8000/https:/github.com/user/repo/archive/main.zip` (修正单斜杠)
+
 ### 通用文件下载
 
 - 任何 HTTP/HTTPS 文件 URL
@@ -156,7 +166,7 @@ RUST_LOG=filetas=trace,tower_http=debug filetas
 | 镜像仓库                  | 镜像地址                                                    | 说明              |
 | ------------------------- | ----------------------------------------------------------- | ----------------- |
 | Docker Hub                | `idevsig/filetas:latest`                                    | 官方镜像仓库      |
-| GitHub Container Registry | `ghcr.io/idev-sig/filetas:latest`                           | GitHub 容器注册表 |
+| GitHub Container Registry | `ghcr.io/idevsig/filetas:latest`                           | GitHub 容器注册表 |
 | 阿里云容器镜像服务        | `registry.cn-guangzhou.aliyuncs.com/idevsig/filetas:latest` | 阿里云镜像        |
 | 腾讯云容器镜像服务        | `sgccr.ccs.tencentyun.com/idevsig/filetas:latest`           | 腾讯云镜像        |
 
@@ -166,8 +176,8 @@ RUST_LOG=filetas=trace,tower_http=debug filetas
 # Docker Hub
 docker run -p 8000:8000 -d idevsig/filetas:latest
 
-# GitHub Contgistry
-docker run -p 8000:8000 -d ghcr.io/idev-sig/filetas:latest
+# GitHub Registry
+docker run -p 8000:8000 -d ghcr.io/idevsig/filetas:latest
 
 # 阿里云镜像（国内用户推荐）
 docker run -p 8000:8000 -d registry.cn-guangzhou.aliyuncs.com/idevsig/filetas:latest
@@ -175,8 +185,8 @@ docker run -p 8000:8000 -d registry.cn-guangzhou.aliyuncs.com/idevsig/filetas:la
 # 腾讯云镜像
 docker run -p 8000:8000 -d sgccr.ccs.tencentyun.com/idevsig/filetas:latest
 
-# 自定义配置
-dockrun -p 3000:3000 -e PORT=3000 -e TITLE="My File Server" -d idevsig/filetas:latest
+# 使用 GITHUB_TOKEN
+docker run -p 8000:8000 -e GITHUB_TOKEN=your_token -d idevsig/filetas:latest
 ```
 
 ### Docker Compose
@@ -193,6 +203,7 @@ services:
       - HOST=0.0.0.0
       - PORT=8000
       - TITLE=文件加速下载
+      - GITHUB_TOKEN=your_token_here
       - RUST_LOG=filetas=info
     volumes:
       - ./templates:/app/templates # 可选：自定义模板
@@ -201,12 +212,8 @@ services:
 ### 构建自定义镜像
 
 ```bash
-# 克隆仓库
-git clone https://github.com/idev-sig/filetas.git
-cd filetas
-
 # 构建镜像
-docker build -t my-filetas .
+docker build -f docker/Dockerfile -t my-filetas .
 
 # 运行
 docker run -p 8000:8000 -d my-filetas
@@ -247,21 +254,22 @@ window.open(downloadUrl);
 ```
 filetas/
 ├── docker/
-│   └── Dockerfile              # Docker 构建文件
+│   ├── Dockerfile              # Docker 构建文件
+│   └── docker-bake.hcl         # Docker Bake 构建配置
 ├── src/
 │   └── main.rs                 # 主程序
 ├── templates/
 │   └── index.html              # Web 界面模板
 ├── Cargo.toml                  # 项目配置
 ├── Cargo.lock                  # 依赖锁定文件
-└── docker-bake.hcl             # Docker Bake 构建配置
+└── README.md
 ```
 
 ### 本地开发
 
 ```bash
 # 克隆项目
-git clone https://github.com/idev-sig/filetas.git
+git clone https://github.com/idevsig/filetas.git
 cd filetas
 
 # 安装依赖并运行
@@ -293,51 +301,22 @@ cargo clippy
 ### 常见问题
 
 1. **端口被占用**
-
    ```bash
-   # 检查端口占用
-   lsof -i :8000
-   # 使用其他端口
    filetas --port 8080
    ```
-
 2. **模板文件未找到**
-
    ```bash
-   # 确保模板目录存在
-   ls -la templates/
-   # 或指定自定义模板目录
    filetas --template-dir /path/to/templates
    ```
-
 3. **SSL/TLS 错误**
    ```bash
    # 确保安装了 OpenSSL 开发包
    sudo apt install libssl-dev pkg-config
    ```
 
-### 日志分析
-
-```bash
-# 启用详细日志查看请求详情
-RUST_LOG=debug filetas
-
-# 只查看错误日志
-RUST_LOG=error filetas
-
-# 查看特定模块日志
-RUST_LOG=filetas::proxy=debug filetas
-```
-
 ## 贡献
 
 欢迎提交 Issue 和 Pull Request！
-
-1. Fork 项目
-2. 创建功能分支 (`git checkout -b feature/amazing-feature`)
-3. 提交更改 (`git commit -m 'Add some amazing feature'`)
-4. 推送到分支 (`git push origin feature/amazing-feature`)
-5. 创建 Pull Request
 
 ## 许可证
 
@@ -345,7 +324,5 @@ RUST_LOG=filetas::proxy=debug filetas
 
 ## 仓库镜像
 
-- [MyCode](https://git.jetsung.com/idev/filetas) (主仓库)
-- [GitHub](https://github.com/idev-sig/filetas)
-- [Framagit](https://framagit.org/idev/filetas)
-- [GitCode](https://gitcode.com/idev/filetas)
+[MyCode](https://git.jetsung.com/idev/filetas) ● [AtomGit](https://atomgit.com/idev/filetas) ● [GitHub](https://github.com/idevsig/filetas)
+

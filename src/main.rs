@@ -18,7 +18,7 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 /// Filetas - 文件加速下载服务
 #[derive(Parser, Debug)]
 #[command(name = "filetas")]
-#[command(version = "0.3.0")]
+#[command(version = "0.3.1")]
 #[command(about = "A file acceleration download service built with Rust and Axum")]
 #[command(long_about = "
 Filetas is a high-performance file acceleration download service that provides:
@@ -162,6 +162,9 @@ async fn stream_response(resp: reqwest::Response) -> impl IntoResponse {
     if let Some(content_disposition) = resp_headers.get(header::CONTENT_DISPOSITION) {
         headers.insert(header::CONTENT_DISPOSITION, content_disposition.clone());
     }
+    if let Some(content_encoding) = resp_headers.get(header::CONTENT_ENCODING) {
+        headers.insert(header::CONTENT_ENCODING, content_encoding.clone());
+    }
 
     // 添加 CORS 头
     add_cors_headers(headers);
@@ -283,6 +286,21 @@ async fn http_request(req_url: &str, method: Method, request_headers: HeaderMap)
         }
     }
 
+    // 处理 GitHub API Token
+    if let Ok(parsed_url) = Url::parse(&final_url) {
+        if parsed_url.host_str() == Some("api.github.com") {
+            if let Ok(token) = std::env::var("GITHUB_TOKEN") {
+                if !token.is_empty() {
+                    let auth_value = format!("Bearer {}", token);
+                    if let Ok(header_value) = HeaderValue::from_str(&auth_value) {
+                        headers.insert(header::AUTHORIZATION, header_value);
+                        debug!("Added Authorization header for api.github.com");
+                    }
+                }
+            }
+        }
+    }
+
     proxy_request(&final_url, req_method, headers).await
 }
 
@@ -358,12 +376,15 @@ async fn entry(
         debug!("URL decoded: {} -> {}", original_url, redirect_url);
     }
 
-    // 去除多余的斜杠
-    let re = Regex::new(r"/+https?://+").unwrap();
-    let cleaned_url = re.replace_all(&redirect_url, "https://").to_string();
-    if cleaned_url != redirect_url {
-        debug!("URL cleaned: {} -> {}", redirect_url, cleaned_url);
-        redirect_url = cleaned_url;
+    // 处理特殊的清理逻辑：如果路径以 https:/https:// 开头（某些客户端转义结果）
+    if redirect_url.starts_with("http:/http://") {
+        redirect_url = redirect_url.replacen("http:/http://", "http://", 1);
+    } else if redirect_url.starts_with("https:/https://") {
+        redirect_url = redirect_url.replacen("https:/https://", "https://", 1);
+    } else if redirect_url.starts_with("http:/") && !redirect_url.starts_with("http://") {
+        redirect_url = redirect_url.replacen("http:/", "http://", 1);
+    } else if redirect_url.starts_with("https:/") && !redirect_url.starts_with("https://") {
+        redirect_url = redirect_url.replacen("https:/", "https://", 1);
     }
 
     // 检查是否已经是完整的 URL
