@@ -230,14 +230,47 @@ const HOP_BY_HOP: &[&str] = &[
     "upgrade",
 ];
 
+// 内置回退页面
+const FALLBACK_HTML: &str = r#"<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }}</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; background: #1a90ff; }
+        .box { text-align: center; width: 90%; max-width: 600px; }
+        h1 { color: #fff; font-size: 1.8em; margin-bottom: 20px; }
+        .row { display: flex; height: 48px; }
+        input { flex: 1; padding: 0 16px; font-size: 16px; border: none; border-radius: 8px 0 0 8px; outline: none; }
+        button { padding: 0 24px; background: #0066ff; border: none; border-radius: 0 8px 8px 0; color: #fff; font-size: 16px; cursor: pointer; }
+        button:hover { background: #0052cc; }
+    </style>
+</head>
+<body>
+<div class="box">
+    <h1>文件加速下载</h1>
+    <div class="row">
+        <input type="text" id="url" placeholder="请输入下载链接">
+        <button onclick="jump()">下载</button>
+    </div>
+</div>
+<script>
+function jump() { var u = document.getElementById('url').value; if (u) { var base = location.href.replace(/\/?$/, '/'); window.open(base + encodeURIComponent(u)); } }
+document.getElementById('url').addEventListener('keypress', function(e) { if (e.key === 'Enter') jump(); });
+</script>
+</body>
+</html>"#;
+
 // 处理 / 请求
 async fn handler_index() -> Html<String> {
     debug!("Serving index page");
     let config = get_config();
     let template_path = format!("{}/index.html", config.template_dir);
     let html_content = std::fs::read_to_string(&template_path).unwrap_or_else(|e| {
-        error!("Failed to load {}: {}", template_path, e);
-        "Error: Could not load index.html".to_string()
+        warn!("Failed to load {}: {}, using built-in fallback page", template_path, e);
+        FALLBACK_HTML.to_string()
     });
 
     Html(html_content.replace("{{ title }}", &config.title))
@@ -545,12 +578,10 @@ async fn main() {
     info!("  Template Dir: {}", config.template_dir);
     info!("  User Agent: {}", config.user_agent);
 
-    // 验证模板目录
+    // 验证模板目录（不存在时使用内置页面）
     let template_path = format!("{}/index.html", config.template_dir);
     if !std::path::Path::new(&template_path).exists() {
-        error!("Template file not found: {}", template_path);
-        error!("Please ensure the template directory exists and contains index.html");
-        std::process::exit(1);
+        warn!("Template file not found: {}, using built-in fallback page", template_path);
     }
 
     let app = Router::new().fallback(entry).layer(
