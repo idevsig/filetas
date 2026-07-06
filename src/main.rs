@@ -4,16 +4,16 @@ use axum::{
     Router,
     body::Body,
     extract::RawQuery,
-    http::{HeaderMap, HeaderValue, StatusCode, header, Method, Uri},
+    http::{HeaderMap, HeaderValue, Method, StatusCode, Uri, header},
     response::{Html, IntoResponse, Response},
 };
 use clap::Parser;
 use regex::Regex;
-use url::Url;
 use tower::ServiceBuilder;
-use tower_http::trace::{TraceLayer, DefaultMakeSpan, DefaultOnResponse};
-use tracing::{info, warn, error, debug, Level};
+use tower_http::trace::{DefaultMakeSpan, DefaultOnResponse, TraceLayer};
+use tracing::{Level, debug, error, info, warn};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+use url::Url;
 
 /// Filetas - 文件加速下载服务
 #[derive(Parser, Debug)]
@@ -55,7 +55,11 @@ struct Args {
     template_dir: String,
 
     /// User agent string for requests
-    #[arg(long, env = "USER_AGENT", default_value = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36")]
+    #[arg(
+        long,
+        env = "USER_AGENT",
+        default_value = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36"
+    )]
     user_agent: String,
 
     /// Enable verbose logging (equivalent to RUST_LOG=debug)
@@ -80,11 +84,16 @@ struct RegexPatterns {
 impl RegexPatterns {
     fn new() -> Self {
         Self {
-            releases: Regex::new(r"^(?:https?://)?github\.com/.+?/.+?/(?:releases|archive)/.*$").unwrap(),
+            releases: Regex::new(r"^(?:https?://)?github\.com/.+?/.+?/(?:releases|archive)/.*$")
+                .unwrap(),
             blob_raw: Regex::new(r"^(?:https?://)?github\.com/.+?/.+?/(?:blob|raw)/.*$").unwrap(),
             info_git: Regex::new(r"^(?:https?://)?github\.com/.+?/.+?/(?:info|git-).*$").unwrap(),
-            raw_content: Regex::new(r"^(?:https?://)?raw\.(?:githubusercontent|github)\.com/.+?/.+?/.+?/.+$").unwrap(),
-            gist: Regex::new(r"^(?:https?://)?gist\.(?:githubusercontent|github)\.com/.+?/.+?/.+$").unwrap(),
+            raw_content: Regex::new(
+                r"^(?:https?://)?raw\.(?:githubusercontent|github)\.com/.+?/.+?/.+?/.+$",
+            )
+            .unwrap(),
+            gist: Regex::new(r"^(?:https?://)?gist\.(?:githubusercontent|github)\.com/.+?/.+?/.+$")
+                .unwrap(),
             tags: Regex::new(r"^(?:https?://)?github\.com/.+?/.+?/tags.*$").unwrap(),
         }
     }
@@ -93,7 +102,10 @@ impl RegexPatterns {
 // 添加 CORS 头
 fn add_cors_headers(headers: &mut HeaderMap) {
     headers.insert(header::ACCESS_CONTROL_ALLOW_ORIGIN, "*".parse().unwrap());
-    headers.insert(header::ACCESS_CONTROL_ALLOW_METHODS, "GET,HEAD,POST,OPTIONS".parse().unwrap());
+    headers.insert(
+        header::ACCESS_CONTROL_ALLOW_METHODS,
+        "GET,HEAD,POST,OPTIONS".parse().unwrap(),
+    );
     headers.insert(header::ACCESS_CONTROL_MAX_AGE, "86400".parse().unwrap());
     headers.insert(header::ACCESS_CONTROL_EXPOSE_HEADERS, "*".parse().unwrap());
 }
@@ -113,21 +125,25 @@ async fn handle_options(headers: HeaderMap) -> impl IntoResponse {
     debug!("Handling OPTIONS request");
     let mut response_headers = HeaderMap::new();
     add_cors_headers(&mut response_headers);
-    
-    if headers.contains_key(header::ORIGIN) &&
-       headers.contains_key(header::ACCESS_CONTROL_REQUEST_METHOD) &&
-       headers.contains_key(header::ACCESS_CONTROL_REQUEST_HEADERS) {
+
+    if headers.contains_key(header::ORIGIN)
+        && headers.contains_key(header::ACCESS_CONTROL_REQUEST_METHOD)
+        && headers.contains_key(header::ACCESS_CONTROL_REQUEST_HEADERS)
+    {
         // Handle CORS preflight requests
         debug!("Handling CORS preflight request");
         if let Some(request_headers) = headers.get(header::ACCESS_CONTROL_REQUEST_HEADERS) {
-            response_headers.insert(header::ACCESS_CONTROL_ALLOW_HEADERS, request_headers.clone());
+            response_headers.insert(
+                header::ACCESS_CONTROL_ALLOW_HEADERS,
+                request_headers.clone(),
+            );
         }
     } else {
         // Handle standard OPTIONS request
         debug!("Handling standard OPTIONS request");
         response_headers.insert(header::ALLOW, "GET, HEAD, POST, OPTIONS".parse().unwrap());
     }
-    
+
     (StatusCode::OK, response_headers, "")
 }
 
@@ -136,9 +152,9 @@ async fn stream_response(resp: reqwest::Response) -> impl IntoResponse {
     let status = resp.status();
     let url = resp.url().clone();
     let resp_headers = resp.headers().clone();
-    
+
     info!("Streaming response: {} {}", status, url);
-    
+
     // 记录响应头信息
     if let Some(content_type) = resp_headers.get(header::CONTENT_TYPE) {
         debug!("Content-Type: {:?}", content_type);
@@ -146,7 +162,7 @@ async fn stream_response(resp: reqwest::Response) -> impl IntoResponse {
     if let Some(content_length) = resp_headers.get(header::CONTENT_LENGTH) {
         debug!("Content-Length: {:?}", content_length);
     }
-    
+
     let stream = resp.bytes_stream();
     let body = Body::from_stream(stream);
     let mut response = Response::new(body);
@@ -183,21 +199,46 @@ use std::sync::OnceLock;
 
 // 全局配置
 static CONFIG: OnceLock<Args> = OnceLock::new();
+static CLIENT: OnceLock<reqwest::Client> = OnceLock::new();
 
 fn get_config() -> &'static Args {
     CONFIG.get().unwrap()
 }
+
+fn get_client() -> &'static reqwest::Client {
+    CLIENT.get_or_init(|| {
+        let config = get_config();
+        reqwest::Client::builder()
+            .redirect(reqwest::redirect::Policy::none())
+            .user_agent(&config.user_agent)
+            .connect_timeout(std::time::Duration::from_secs(15))
+            .timeout(std::time::Duration::from_secs(60))
+            .build()
+            .unwrap()
+    })
+}
+
+// 需要过滤的逐跳首部（hop-by-hop headers）
+const HOP_BY_HOP: &[&str] = &[
+    "connection",
+    "keep-alive",
+    "proxy-authenticate",
+    "proxy-authorization",
+    "te",
+    "trailer",
+    "transfer-encoding",
+    "upgrade",
+];
 
 // 处理 / 请求
 async fn handler_index() -> Html<String> {
     debug!("Serving index page");
     let config = get_config();
     let template_path = format!("{}/index.html", config.template_dir);
-    let html_content = std::fs::read_to_string(&template_path)
-        .unwrap_or_else(|e| {
-            error!("Failed to load {}: {}", template_path, e);
-            "Error: Could not load index.html".to_string()
-        });
+    let html_content = std::fs::read_to_string(&template_path).unwrap_or_else(|e| {
+        error!("Failed to load {}: {}", template_path, e);
+        "Error: Could not load index.html".to_string()
+    });
 
     Html(html_content.replace("{{ title }}", &config.title))
 }
@@ -215,33 +256,59 @@ async fn handler_robots() -> impl IntoResponse {
 }
 
 // 代理请求处理
-async fn proxy_request(url: &str, method: reqwest::Method, headers: HeaderMap) -> Result<reqwest::Response, reqwest::Error> {
+async fn proxy_request(
+    url: &str,
+    method: reqwest::Method,
+    headers: HeaderMap,
+) -> Result<reqwest::Response, reqwest::Error> {
     let start_time = Instant::now();
     debug!("Sending {} request to: {}", method, url);
-    
-    let config = get_config();
-    let client = reqwest::Client::builder()
-        .redirect(reqwest::redirect::Policy::none())
-        .user_agent(&config.user_agent)
-        .build()
-        .unwrap();
 
-    let response = client.request(method.clone(), url)
+    let client = get_client();
+    let response = client
+        .request(method.clone(), url)
         .headers(headers)
         .send()
         .await?;
 
     let elapsed = start_time.elapsed();
     let status = response.status();
-    
-    info!("Request completed: {} {} - {} ({:.2}ms)", method, url, status, elapsed.as_millis());
+
+    info!(
+        "Request completed: {} {} - {} ({:.2}ms)",
+        method,
+        url,
+        status,
+        elapsed.as_millis()
+    );
 
     // 处理重定向
     if response.status().is_redirection() {
         if let Some(location) = response.headers().get(header::LOCATION) {
             if let Ok(location_str) = location.to_str() {
-                info!("Following redirect to: {}", location_str);
-                return Box::pin(proxy_request(location_str, reqwest::Method::GET, HeaderMap::new())).await;
+                let redirect_url = if location_str.starts_with("http://")
+                    || location_str.starts_with("https://")
+                {
+                    location_str.to_string()
+                } else {
+                    // 处理相对 URL：基于原始 URL 解析
+                    if let Ok(base) = Url::parse(url) {
+                        if let Ok(resolved) = base.join(location_str) {
+                            resolved.to_string()
+                        } else {
+                            format!("{}{}", url.trim_end_matches('/'), location_str)
+                        }
+                    } else {
+                        format!("{}{}", url.trim_end_matches('/'), location_str)
+                    }
+                };
+                info!("Following redirect to: {}", redirect_url);
+                return Box::pin(proxy_request(
+                    &redirect_url,
+                    reqwest::Method::GET,
+                    HeaderMap::new(),
+                ))
+                .await;
             }
         }
     }
@@ -250,19 +317,27 @@ async fn proxy_request(url: &str, method: reqwest::Method, headers: HeaderMap) -
 }
 
 // HTTP 请求处理
-async fn http_request(req_url: &str, method: Method, request_headers: HeaderMap) -> Result<reqwest::Response, reqwest::Error> {
+async fn http_request(
+    req_url: &str,
+    method: Method,
+    request_headers: HeaderMap,
+) -> Result<reqwest::Response, reqwest::Error> {
     let patterns = RegexPatterns::new();
-    
-    let final_url = if patterns.releases.is_match(req_url) || 
-                      patterns.gist.is_match(req_url) || 
-                      patterns.tags.is_match(req_url) || 
-                      patterns.info_git.is_match(req_url) || 
-                      patterns.raw_content.is_match(req_url) {
+
+    let final_url = if patterns.releases.is_match(req_url)
+        || patterns.gist.is_match(req_url)
+        || patterns.tags.is_match(req_url)
+        || patterns.info_git.is_match(req_url)
+        || patterns.raw_content.is_match(req_url)
+    {
         debug!("Matched GitHub pattern for: {}", req_url);
         req_url.to_string()
     } else if patterns.blob_raw.is_match(req_url) {
         let transformed_url = req_url.replace("/blob/", "/raw/");
-        debug!("Transformed GitHub blob URL: {} -> {}", req_url, transformed_url);
+        debug!(
+            "Transformed GitHub blob URL: {} -> {}",
+            req_url, transformed_url
+        );
         transformed_url
     } else {
         debug!("Using original URL: {}", req_url);
@@ -271,9 +346,13 @@ async fn http_request(req_url: &str, method: Method, request_headers: HeaderMap)
 
     let req_method = reqwest::Method::from_bytes(method.as_str().as_bytes()).unwrap();
     let mut headers = HeaderMap::new();
-    
-    // 复制请求头，但处理 HOST 头
+
+    // 复制请求头，过滤掉逐跳首部和 Content-Length
     for (key, value) in request_headers.iter() {
+        let key_str = key.as_str().to_lowercase();
+        if HOP_BY_HOP.contains(&key_str.as_str()) {
+            continue;
+        }
         if key == header::HOST {
             if let Ok(parsed_url) = Url::parse(&final_url) {
                 if let Some(host) = parsed_url.host_str() {
@@ -307,7 +386,7 @@ async fn http_request(req_url: &str, method: Method, request_headers: HeaderMap)
 // 执行请求
 async fn do_request(req_url: &str, method: Method, headers: HeaderMap) -> impl IntoResponse {
     info!("Processing request: {} {}", method, req_url);
-    
+
     if method == Method::OPTIONS {
         return handle_options(headers).await.into_response();
     }
@@ -322,24 +401,27 @@ async fn do_request(req_url: &str, method: Method, headers: HeaderMap) -> impl I
         Ok(resp) => {
             debug!("Request successful, streaming response");
             stream_response(resp).await.into_response()
-        },
+        }
         Err(e) => {
-            error!("Request failed: {}", e);
+            error!("Request failed: {:#}", e);
+            let mut msg = String::new();
+            let mut slot: Option<&dyn std::error::Error> = Some(&e);
+            while let Some(err) = slot {
+                msg.push_str(&err.to_string());
+                msg.push('\n');
+                slot = err.source();
+            }
+            debug!("Request error chain:\n{}", msg.trim());
             (StatusCode::INTERNAL_SERVER_ERROR, "Failed to send request").into_response()
-        },
+        }
     }
 }
 
 // 入口函数 - 处理所有请求
-async fn entry(
-    uri: Uri,
-    method: Method,
-    headers: HeaderMap,
-    query: RawQuery,
-) -> Response<Body> {
+async fn entry(uri: Uri, method: Method, headers: HeaderMap, query: RawQuery) -> Response<Body> {
     let path = uri.path();
     debug!("Incoming request: {} {}", method, path);
-    
+
     // 处理根路径
     if path == "/" {
         return handler_index().await.into_response();
@@ -359,7 +441,7 @@ async fn entry(
 
     // 取出网址
     let mut redirect_url = path.trim_start_matches('/').to_string();
-    
+
     // 添加查询参数
     if let Some(query_str) = query.0 {
         if !query_str.is_empty() {
@@ -371,7 +453,9 @@ async fn entry(
 
     // 解码 URL
     let original_url = redirect_url.clone();
-    redirect_url = urlencoding::decode(&redirect_url).unwrap_or_default().to_string();
+    redirect_url = urlencoding::decode(&redirect_url)
+        .unwrap_or_default()
+        .to_string();
     if original_url != redirect_url {
         debug!("URL decoded: {} -> {}", original_url, redirect_url);
     }
@@ -390,16 +474,25 @@ async fn entry(
     // 检查是否已经是完整的 URL
     if redirect_url.starts_with("http://") || redirect_url.starts_with("https://") {
         debug!("Processing complete URL: {}", redirect_url);
-        return do_request(&redirect_url, method, headers).await.into_response();
+        return do_request(&redirect_url, method, headers)
+            .await
+            .into_response();
     }
 
     // 处理有 Referer 的情况
     if let Some(referer) = headers.get(header::REFERER) {
         if let Ok(referer_str) = referer.to_str() {
             if let Ok(referer_url) = Url::parse(referer_str) {
-                let origin_url = format!("{}://{}", referer_url.scheme(), referer_url.host_str().unwrap_or(""));
+                let origin_url = format!(
+                    "{}://{}",
+                    referer_url.scheme(),
+                    referer_url.host_str().unwrap_or("")
+                );
                 let full_url = format!("{}/{}", origin_url, redirect_url);
-                debug!("Processing URL with referer: {} (from {})", full_url, referer_str);
+                debug!(
+                    "Processing URL with referer: {} (from {})",
+                    full_url, referer_str
+                );
                 return do_request(&full_url, method, headers).await.into_response();
             }
         }
@@ -460,35 +553,40 @@ async fn main() {
         std::process::exit(1);
     }
 
-    let app = Router::new()
-        .fallback(entry)
-        .layer(
-            ServiceBuilder::new()
-                .layer(
-                    TraceLayer::new_for_http()
-                        .make_span_with(DefaultMakeSpan::new().level(Level::INFO))
-                        .on_response(DefaultOnResponse::new().level(Level::INFO))
-                )
-        );
+    let app = Router::new().fallback(entry).layer(
+        ServiceBuilder::new().layer(
+            TraceLayer::new_for_http()
+                .make_span_with(DefaultMakeSpan::new().level(Level::INFO))
+                .on_response(DefaultOnResponse::new().level(Level::INFO)),
+        ),
+    );
 
     let addr = SocketAddr::new(
         config.host.parse().unwrap_or_else(|e| {
             error!("Invalid host address '{}': {}", config.host, e);
             std::process::exit(1);
-        }), 
+        }),
+        config.port,
+    );
+
+    let listener = tokio::net::TcpListener::bind(addr)
+        .await
+        .unwrap_or_else(|e| {
+            error!("Failed to bind to {}:{}: {}", config.host, config.port, e);
+            std::process::exit(1);
+        });
+
+    info!("Server listening on {}", listener.local_addr().unwrap());
+    info!(
+        "Access the web interface at: http://{}:{}",
+        if config.host == "0.0.0.0" {
+            "localhost"
+        } else {
+            &config.host
+        },
         config.port
     );
 
-    let listener = tokio::net::TcpListener::bind(addr).await.unwrap_or_else(|e| {
-        error!("Failed to bind to {}:{}: {}", config.host, config.port, e);
-        std::process::exit(1);
-    });
-
-    info!("Server listening on {}", listener.local_addr().unwrap());
-    info!("Access the web interface at: http://{}:{}", 
-          if config.host == "0.0.0.0" { "localhost" } else { &config.host }, 
-          config.port);
-    
     if let Err(e) = axum::serve(listener, app).await {
         error!("Server error: {}", e);
         std::process::exit(1);
